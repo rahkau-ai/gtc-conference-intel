@@ -1,0 +1,26 @@
+# Local run data — never commit
+runs/
+config.json
+*.pdf
+*.csv
+*.sha256
+*.jsonl
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+*.html
+*.png
+
+# Secrets
+.env
+*.key
+
+# OS
+.DS_Store
+Thumbs.db

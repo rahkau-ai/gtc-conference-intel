@@ -1,0 +1,24 @@
+{
+  "colors": {
+    "primary": "#0f52ba",
+    "primary_dashboard": "#0f52ba",
+    "gold": "#F4A623",
+    "white": "#ffffff",
+    "dark": "#1a1a2e",
+    "muted": "#6c757d",
+    "light_bg": "#f8f9fa"
+  },
+  "fonts": {
+    "primary": "Source Sans 3",
+    "fallback": "sans-serif"
+  },
+  "logo": {
+    "relative_path": "shared/assets/logo-horizontal-clean.png",
+    "config_key": "logo_path"
+  },
+  "watermark": {
+    "enabled": true,
+    "opacity_body": "0.04",
+    "opacity_cover": "0.09"
+  }
+}

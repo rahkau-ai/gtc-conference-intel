@@ -1,0 +1,38 @@
+{
+  "_comment": "Copy this file to config.json in your run directory. Never commit config.json.",
+  "conference": {
+    "name": "ASGCT",
+    "year": 2027,
+    "label": "ASGCT 2027",
+    "pdf_path": "/absolute/path/to/abstracts.pdf",
+    "official_abstract_count": 4019,
+    "heading_regex": "^\\s*(?P<id>\\d{1,4})\\s+(?P<title>[A-Z][^\\n]{20,})"
+  },
+  "splitting": {
+    "max_abstracts_per_chunk": 40,
+    "max_pages_per_chunk": 40,
+    "output_dir": "/absolute/path/to/runs/asgct-2027/chunks",
+    "prefix": "ASGCT2027"
+  },
+  "notebooklm": {
+    "notebook_id": "YOUR_NOTEBOOK_ID_HERE",
+    "notebooklm_path": "C:\\Users\\Me\\.notebooklm-venv\\Scripts\\notebooklm.exe",
+    "upload_timeout_seconds": 180
+  },
+  "extraction": {
+    "prompt_file": "prompts/extract_v1.txt",
+    "output_dir": "/absolute/path/to/runs/asgct-2027/raw-extracted",
+    "run_id": "asgct-2027"
+  },
+  "assembly": {
+    "logo_path": "C:\\Users\\Me\\Desktop\\GTC\\GTC Design System\\assets\\logo-horizontal-clean.png",
+    "report_draft": "/absolute/path/to/report-draft.md",
+    "charts_dir": "/absolute/path/to/charts",
+    "output_dir": "/absolute/path/to/runs/asgct-2027/report-build"
+  },
+  "gates": {
+    "split_count_tolerance_pct": 0,
+    "coverage_warning_threshold_pct": 10,
+    "coverage_hard_fail_threshold_pct": 30
+  }
+}
