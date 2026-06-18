@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Stage 1 — Split a conference abstract PDF into chunks for fact extraction.
+Stage 1 - Split a conference abstract PDF into chunks for fact extraction.
 
 TWO-PASS APPROACH (FM-01 gate):
   Pass 1: Full-PDF scan. Records detected_count and known_gaps (abstract IDs with
@@ -174,7 +174,7 @@ def main() -> int:
     max_abstracts = split_cfg.get("max_abstracts_per_chunk", 40)
     max_pages = split_cfg.get("max_pages_per_chunk", 40)
 
-    print("Stage 1 — Pass 1: full PDF scan...")
+    print("Stage 1 - Pass 1: full PDF scan...")
     doc = fitz.open(args.input_pdf)
     total_pages = doc.page_count
     hits, known_gaps = detect_abstracts(doc, heading_re)
@@ -190,13 +190,13 @@ def main() -> int:
         print("Check PDF quality, OCR, or heading_regex. Aborting.", file=sys.stderr)
         return 1
 
-    print("Stage 1 — Pass 2: building chunks...")
+    print("Stage 1 - Pass 2: building chunks...")
     chunks = build_chunks(hits, max_abstracts, max_pages, total_pages, out_dir, prefix)
 
     for chunk in chunks:
         write_chunk(args.input_pdf, chunk)
-        print(f"  Chunk {chunk.index:04d}: abstracts {chunk.first_abstract_id}–{chunk.last_abstract_id} "
-              f"→ {chunk.output_txt.name}")
+        print(f"  Chunk {chunk.index:04d}: abstracts {chunk.first_abstract_id}-{chunk.last_abstract_id} "
+              f"-> {chunk.output_txt.name}")
 
     # HARD GATE: chunk abstract IDs must reproduce detected_count exactly (FM-01)
     all_ids_in_chunks: set[int] = set()

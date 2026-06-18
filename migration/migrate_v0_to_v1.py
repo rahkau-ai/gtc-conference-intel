@@ -147,7 +147,7 @@ def main():
             print(json.dumps(r, indent=2))
         return
 
-    print(f"Migrated : {migrated} rows  →  {out_path}")
+    print(f"Migrated : {migrated} rows -> {out_path}")
     print(f"Skipped  : {skipped} (no abstract_id)")
     print(f"Low conf : {low_confidence} rows (evidence_quote missing or confidence unknown)")
 
