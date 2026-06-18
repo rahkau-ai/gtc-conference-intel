@@ -17,6 +17,9 @@ import json
 import sys
 from pathlib import Path
 
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 REQUIRED_FIELDS = ["abstract_id", "source_id", "source_type", "fact_type", "subject", "what", "evidence_quote", "citation", "confidence"]
 CONDITIONAL_FIELDS = ["quant_value", "quant_unit", "quant_context"]
 OPTIONAL_FIELDS = ["modality", "disease", "organisation", "geography", "schema_version", "prompt_hash"]

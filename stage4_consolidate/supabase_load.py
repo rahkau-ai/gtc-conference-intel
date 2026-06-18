@@ -25,6 +25,9 @@ import os
 import sys
 from pathlib import Path
 
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 try:
     import requests
 except ImportError:

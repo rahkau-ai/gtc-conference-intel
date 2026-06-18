@@ -17,6 +17,9 @@ import json
 import sys
 from pathlib import Path
 
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
