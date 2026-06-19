@@ -66,8 +66,9 @@ if (!setup?.files?.length) {
   return { gate: "HARD_FAIL", reason: "No chunks in " + S1_DIR };
 }
 
-// Divide into batches of ~10 chunks
-const BATCH_SIZE = 10;
+// Divide into batches of 3 chunks — keeps each agent well within 200K context
+// (3 × ~15K words input + ~40K chars output ≈ 100K tokens total, comfortable)
+const BATCH_SIZE = 3;
 const batches = [];
 for (let i = 0; i < setup.files.length; i += BATCH_SIZE) {
   batches.push(setup.files.slice(i, i + BATCH_SIZE));
@@ -93,11 +94,10 @@ const batchResults = await pipeline(
     return agent(
       `You are a structured fact-extraction agent for ASGCT 2026 (gene therapy conference).
 Process each file below IN ORDER. For each:
-1. Check if the output JSONL already exists — if yes, skip (idempotent re-run).
-2. Read the source .txt file.
-3. Find every abstract (lines starting with a number followed by an uppercase title).
-4. Extract 1–5 key factual claims per abstract as JSON objects.
-5. Write all facts for this file as JSONL (one JSON object per line, UTF-8) to the output path.
+1. Read the source .txt file (always re-extract — overwrite any existing output).
+2. Find every abstract (lines starting with a number followed by an uppercase title).
+3. Extract 1–5 key factual claims per abstract as JSON objects.
+4. Write all facts for this file as JSONL (one JSON object per line, UTF-8) to the output path.
 
 ${SCHEMA_RULES}
 
@@ -110,7 +110,7 @@ After processing all files, return:
   total_facts: total facts written across all files
   files_processed: count of files processed (not skipped)
   files_skipped: count already-existing JSONL files skipped
-  errors: list of any file-level errors`,
+  errors: list of any file-level errors (include chunk name + which abstract_ids were missed if truncation occurred)`,
       {
         label: `${batchLabel}:${batch.length}chunks`,
         phase: "Extract",
