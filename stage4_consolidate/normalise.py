@@ -22,7 +22,9 @@ sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 REQUIRED_FIELDS = ["abstract_id", "source_id", "source_type", "fact_type", "subject", "what", "evidence_quote", "citation", "confidence"]
 CONDITIONAL_FIELDS = ["quant_value", "quant_unit", "quant_context"]
-OPTIONAL_FIELDS = ["modality", "disease", "organisation", "geography", "schema_version", "prompt_hash"]
+OPTIONAL_FIELDS = ["modality", "disease", "organisation", "geography", "schema_version", "prompt_hash",
+                   "development_stage", "sponsor_type", "ip_signals", "aav_capsid",
+                   "therapeutic_payload", "trial_id", "manufacturing_gmp_signal"]
 KNOWN_FACT_TYPES = {"finding", "event", "announcement", "datapoint", "claim"}
 KNOWN_CONFIDENCE = {"high", "medium", "low"}
 KNOWN_MODALITIES = {"gene_therapy", "gene_editing", "cell_therapy", "mRNA", "other", None}

@@ -5,10 +5,13 @@ Stage 3 — Python fact extraction (zero Claude tokens).
 Processes ASGCT 2026 abstract chunk .txt files → wide CSV + JSONL.
 Resume-safe: appends to existing CSV, skips already-extracted abstract_ids.
 
-Schema (26 columns):
-  Tier 1 (16 cols): always filled or UNKNOWN
-  Tier 2 (9 cols):  filled if present, "not_reported" if absent
-  Reserved (1 col): scientific_comment (blank placeholder)
+Schema (33 columns):
+  Tier 1 (16 cols):     always filled or UNKNOWN
+  Tier 2 base (9 cols): filled if present, "not_reported" if absent
+  Tier 2 intel (7 cols): intelligence signals — development_stage, sponsor_type,
+                          ip_signals, aav_capsid, therapeutic_payload, trial_id,
+                          manufacturing_gmp_signal ("UNKNOWN" when absent)
+  Reserved (1 col):     scientific_comment (blank placeholder)
 
 Usage:
   # Dry-run on single chunk — prints 3 examples, no file write
@@ -45,6 +48,9 @@ CSV_COLUMNS = [
     "animal_models", "cell_lines", "dose_raw", "route_of_admin",
     "time_points", "methods", "assays", "instruments",
     "all_authors_raw",
+    # Tier 2 — intelligence signals (v1-python upgrade, default "UNKNOWN")
+    "development_stage", "sponsor_type", "ip_signals", "aav_capsid",
+    "therapeutic_payload", "trial_id", "manufacturing_gmp_signal",
     # Reserved — blank placeholder for future scientific reviewer pass
     "scientific_comment",
 ]
@@ -233,6 +239,77 @@ INSTRUMENT_KEYWORDS = {
     r'\bClonoSEQ\b':                                   'ClonoSEQ',
 }
 
+# ─── TIER 2 INTELLIGENCE SIGNAL PATTERNS (v1-python upgrade) ─────────────────
+
+STAGE_REGULATORY = re.compile(
+    r'\b(?:BLA|NDA|MAA|FDA\s+approv|EMA\s+approv|approved\s+(?:therapy|product)|'
+    r'market\s+authoriz|accelerated\s+approv|breakthrough\s+therapy\s+designation|'
+    r'orphan\s+drug\s+designation)\b',
+    re.IGNORECASE
+)
+STAGE_CLINICAL = re.compile(
+    r'\b(?:Phase\s+(?:I{1,3}|1|2|3)|phase\s+[123]|first.?in.?human|first-in-human|'
+    r'clinical\s+trial|IND\s+(?:application|filing|submission)|investigational\s+new\s+drug|'
+    r'phase\s+I/II|NCT\d{4,}|ongoing\s+(?:clinical|trial))\b',
+    re.IGNORECASE
+)
+STAGE_PRECLINICAL = re.compile(
+    r'\b(?:preclinical|pre.?clinical|in\s+vitro|in\s+vivo|mouse\s+model|'
+    r'murine\b|NHP\b|non.?human\s+primate|animal\s+model|rodent\s+model|'
+    r'proof.?of.?concept|POC\b|bench.?scale)\b',
+    re.IGNORECASE
+)
+
+INDUSTRY_ORG_RE = re.compile(
+    r'\b(?:Therapeutics?|Pharmaceuticals?|Biosciences?|Biotechnology|Biotech\b|'
+    r'Inc\.?|Corp\.?|GmbH|Ltd\.?\b|LLC\b|AG\b|BV\b|plc\b|Medicines\b|Genomics\b|'
+    r'Biotherapeutics?|Sciences\b)\b',
+    re.IGNORECASE
+)
+ACADEMIA_ORG_RE = re.compile(
+    r'\b(?:University|Universit[äéè]|College\b|Institute\b|Hospital\b|'
+    r'Medical\s+Center|Medical\s+Centre|School\s+of\b|Foundation\b|Academy\b|'
+    r'Research\s+(?:Center|Centre)\b|INSERM\b|NIH\b|NCI\b|NHS\b|IRCCS\b)\b',
+    re.IGNORECASE
+)
+
+IP_TERMS = {
+    'patent':       re.compile(r'\b(?:patent(?:ed|ing)?|patent.?pending)\b', re.IGNORECASE),
+    'proprietary':  re.compile(r'\bproprietary\b', re.IGNORECASE),
+    'licensed':     re.compile(r'\b(?:licens(?:ed|ing|ee?)|exclusive\s+licen[sc]e|sublicens)\b', re.IGNORECASE),
+    'orphan_drug':  re.compile(r'\borphan\s+drug\s+(?:designation|status)\b', re.IGNORECASE),
+    'breakthrough': re.compile(r'\bbreakthrough\s+therapy\s+designation\b', re.IGNORECASE),
+    'fast_track':   re.compile(r'\bfast.?track\s+(?:designation|status)\b', re.IGNORECASE),
+}
+
+AAV_CAPSID_RE = re.compile(
+    r'\b(?:AAV[1-9]\b|AAV1[0-9]\b|AAVrh\d+|AAV-?PHP\b|AAVrh74\b|AAVhu68\b|'
+    r'engineered\s+capsid|novel\s+capsid|self.?complementary\s+AAV|scAAV\b|'
+    r'capsid\s+(?:engineer|variant|modif)|synthetic\s+capsid)\b',
+    re.IGNORECASE
+)
+
+PAYLOAD_RE = re.compile(
+    r'\b(?:SMN[12]?\b|dystrophin\b|micro-?dystrophin\b|'
+    r'FIX\b|Factor\s*IX\b|FVIII\b|Factor\s*VIII\b|'
+    r'RPE65\b|CEP290\b|RPGR\b|CNGB3\b|CNGA3\b|'
+    r'beta.?globin\b|haemoglobin\b|hemoglobin\b|'
+    r'PCSK9\b|LDLR\b|HTT\b|huntingtin\b|CFTR\b|'
+    r'phenylalanine\s+hydroxylase|PAH\b|'
+    r'alpha.?1.?antitrypsin\b|A1AT\b|'
+    r'arginase\b|OTC\b|ornithine\s+transcarbamylase|'
+    r'CLN[2-9]\b|MECP2\b|GBA\b|glucocerebrosidase\b|'
+    r'ADA\b|adenosine\s+deaminase\b|'
+    r'chimeric\s+antigen\s+receptor|TCR.?T\b)\b',
+    re.IGNORECASE
+)
+
+TRIAL_ID_RE = re.compile(r'\bNCT\d{7,8}\b')
+
+GMP_RE         = re.compile(r'\b(?:cGMP|current\s+GMP|GMP.?(?:grade|manufactured|batch|compliant))\b', re.IGNORECASE)
+GMP_PROCESS_RE = re.compile(r'\b(?:process\s+development|CMC\b|manufacturing\s+readiness|technology\s+transfer|CDMO\s+partner)\b', re.IGNORECASE)
+SCALE_RE       = re.compile(r'\b(?:scale.?up|clinical\s+scale|commercial\s+scale|manufacturing\s+scale)\b', re.IGNORECASE)
+
 # Time point regex — captures durations mentioned in text
 TIME_RE = re.compile(
     r'(\d+(?:\.\d+)?)\s*[-–]?\s*(\d+(?:\.\d+)?)?\s*'
@@ -264,6 +341,66 @@ COUNTRY_RE = re.compile(
 
 # Sentence splitter
 SENTENCE_RE = re.compile(r'(?<=[.!?])\s+(?=[A-Z])')
+
+
+# ─── INTELLIGENCE SIGNAL HELPERS ─────────────────────────────────────────────
+
+def detect_development_stage(text):
+    if STAGE_REGULATORY.search(text):
+        return 'regulatory'
+    if STAGE_CLINICAL.search(text):
+        return 'clinical'
+    if STAGE_PRECLINICAL.search(text):
+        return 'preclinical'
+    return 'UNKNOWN'
+
+
+def detect_sponsor_type(organisation, full_text):
+    org = organisation if (organisation and organisation != 'UNKNOWN') else ''
+    ind_org  = bool(INDUSTRY_ORG_RE.search(org))
+    acad_org = bool(ACADEMIA_ORG_RE.search(org))
+    if ind_org and acad_org:
+        return 'collaborative'
+    if ind_org:
+        return 'industry'
+    if acad_org:
+        return 'academia'
+    # Fallback: scan full text
+    ind_text  = bool(INDUSTRY_ORG_RE.search(full_text))
+    acad_text = bool(ACADEMIA_ORG_RE.search(full_text))
+    if ind_text and acad_text:
+        return 'collaborative'
+    if ind_text:
+        return 'industry'
+    if acad_text:
+        return 'academia'
+    return 'UNKNOWN'
+
+
+def detect_ip_signals(text):
+    found = [key for key, rx in IP_TERMS.items() if rx.search(text)]
+    return '|'.join(found) if found else 'UNKNOWN'
+
+
+def detect_aav_capsids(text):
+    hits = list(dict.fromkeys(m.group(0) for m in AAV_CAPSID_RE.finditer(text)))
+    return '|'.join(hits[:8]) if hits else 'UNKNOWN'
+
+
+def detect_payload(text):
+    hits = list(dict.fromkeys(m.group(0) for m in PAYLOAD_RE.finditer(text)))
+    return '|'.join(hits[:10]) if hits else 'UNKNOWN'
+
+
+def detect_manufacturing_gmp(text):
+    if GMP_RE.search(text):
+        return 'gmp'
+    if GMP_PROCESS_RE.search(text):
+        return 'gmp_process_dev'
+    if SCALE_RE.search(text):
+        return 'scale_up'
+    return 'UNKNOWN'
+
 
 # ─── CORE EXTRACTION FUNCTIONS ───────────────────────────────────────────────
 
@@ -614,6 +751,16 @@ def parse_chunk(chunk_text, source_id, chunk_pages):
         time_points    = extract_time_points(abstract_text)
         dose_raw       = extract_dose(abstract_text)
 
+        # Tier 2 — intelligence signals
+        development_stage        = detect_development_stage(abstract_text)
+        sponsor_type             = detect_sponsor_type(organisation, abstract_text)
+        ip_signals               = detect_ip_signals(abstract_text)
+        aav_capsid               = detect_aav_capsids(abstract_text)
+        therapeutic_payload      = detect_payload(abstract_text)
+        trial_id_m               = TRIAL_ID_RE.search(abstract_text)
+        trial_id                 = trial_id_m.group(0) if trial_id_m else 'UNKNOWN'
+        manufacturing_gmp_signal = detect_manufacturing_gmp(abstract_text)
+
         citation = f"Abstract {abstract_id}. {title}. ASGCT 2026."
 
         yield {
@@ -641,6 +788,13 @@ def parse_chunk(chunk_text, source_id, chunk_pages):
             'assays':            assays,
             'instruments':       instruments,
             'all_authors_raw':   all_authors_raw,
+            'development_stage':        development_stage,
+            'sponsor_type':             sponsor_type,
+            'ip_signals':               ip_signals,
+            'aav_capsid':               aav_capsid,
+            'therapeutic_payload':      therapeutic_payload,
+            'trial_id':                 trial_id,
+            'manufacturing_gmp_signal': manufacturing_gmp_signal,
             'scientific_comment': '',
         }
 
@@ -716,14 +870,22 @@ def rescue_missing_abstracts(chunk_files, extracted_ids, row_counter, page_map,
                         'fact_type':      'finding',
                         'subject':        fact['organisation'] if fact['organisation'] != 'UNKNOWN' else fact['first_author'],
                         'what':           fact['what_found'],
-                        'modality':       fact['modality'] if fact['modality'] != 'UNKNOWN' else None,
-                        'disease':        fact['disease']   if fact['disease']   != 'UNKNOWN' else None,
-                        'organisation':   fact['organisation'] if fact['organisation'] != 'UNKNOWN' else None,
-                        'geography':      fact['geography']    if fact['geography']    != 'UNKNOWN' else None,
+                        'modality':       fact['modality']      if fact['modality']      != 'UNKNOWN' else None,
+                        'disease':        fact['disease']        if fact['disease']        != 'UNKNOWN' else None,
+                        'organisation':   fact['organisation']   if fact['organisation']   != 'UNKNOWN' else None,
+                        'geography':      fact['geography']      if fact['geography']      != 'UNKNOWN' else None,
                         'evidence_quote': fact['evidence_quote'],
                         'citation':       fact['citation'],
                         'confidence':     fact['confidence'],
                         'schema_version': 'v1-python',
+                        # Tier 2 intelligence signals
+                        'development_stage':        fact.get('development_stage')        if fact.get('development_stage')        != 'UNKNOWN' else None,
+                        'sponsor_type':             fact.get('sponsor_type')             if fact.get('sponsor_type')             != 'UNKNOWN' else None,
+                        'ip_signals':               fact.get('ip_signals')               if fact.get('ip_signals')               != 'UNKNOWN' else None,
+                        'aav_capsid':               fact.get('aav_capsid')               if fact.get('aav_capsid')               != 'UNKNOWN' else None,
+                        'therapeutic_payload':      fact.get('therapeutic_payload')      if fact.get('therapeutic_payload')      != 'UNKNOWN' else None,
+                        'trial_id':                 fact.get('trial_id')                 if fact.get('trial_id')                 != 'UNKNOWN' else None,
+                        'manufacturing_gmp_signal': fact.get('manufacturing_gmp_signal') if fact.get('manufacturing_gmp_signal') != 'UNKNOWN' else None,
                     }
                     jsonl_fh.write(json.dumps(jrow, ensure_ascii=False) + '\n')
                     jsonl_fh.flush()
@@ -858,20 +1020,28 @@ def main():
                         csv_fh.flush()
                     if jsonl_fh:
                         row = {
-                            'abstract_id':   aid,
-                            'source_id':     fact['source_id'],
-                            'source_type':   'pdf_abstract',
-                            'fact_type':     'finding',
-                            'subject':       fact['organisation'] if fact['organisation'] != 'UNKNOWN' else fact['first_author'],
-                            'what':          fact['what_found'],
-                            'modality':      fact['modality'] if fact['modality'] != 'UNKNOWN' else None,
-                            'disease':       fact['disease']   if fact['disease']   != 'UNKNOWN' else None,
-                            'organisation':  fact['organisation'] if fact['organisation'] != 'UNKNOWN' else None,
-                            'geography':     fact['geography']    if fact['geography']    != 'UNKNOWN' else None,
+                            'abstract_id':    aid,
+                            'source_id':      fact['source_id'],
+                            'source_type':    'pdf_abstract',
+                            'fact_type':      'finding',
+                            'subject':        fact['organisation'] if fact['organisation'] != 'UNKNOWN' else fact['first_author'],
+                            'what':           fact['what_found'],
+                            'modality':       fact['modality']      if fact['modality']      != 'UNKNOWN' else None,
+                            'disease':        fact['disease']        if fact['disease']        != 'UNKNOWN' else None,
+                            'organisation':   fact['organisation']   if fact['organisation']   != 'UNKNOWN' else None,
+                            'geography':      fact['geography']      if fact['geography']      != 'UNKNOWN' else None,
                             'evidence_quote': fact['evidence_quote'],
                             'citation':       fact['citation'],
                             'confidence':     fact['confidence'],
                             'schema_version': 'v1-python',
+                            # Tier 2 intelligence signals
+                            'development_stage':        fact.get('development_stage')        if fact.get('development_stage')        != 'UNKNOWN' else None,
+                            'sponsor_type':             fact.get('sponsor_type')             if fact.get('sponsor_type')             != 'UNKNOWN' else None,
+                            'ip_signals':               fact.get('ip_signals')               if fact.get('ip_signals')               != 'UNKNOWN' else None,
+                            'aav_capsid':               fact.get('aav_capsid')               if fact.get('aav_capsid')               != 'UNKNOWN' else None,
+                            'therapeutic_payload':      fact.get('therapeutic_payload')      if fact.get('therapeutic_payload')      != 'UNKNOWN' else None,
+                            'trial_id':                 fact.get('trial_id')                 if fact.get('trial_id')                 != 'UNKNOWN' else None,
+                            'manufacturing_gmp_signal': fact.get('manufacturing_gmp_signal') if fact.get('manufacturing_gmp_signal') != 'UNKNOWN' else None,
                         }
                         jsonl_fh.write(json.dumps(row, ensure_ascii=False) + '\n')
                         jsonl_fh.flush()

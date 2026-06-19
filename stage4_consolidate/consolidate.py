@@ -25,6 +25,9 @@ MASTER_CSV_FIELDS = [
     "quant_value", "quant_unit", "quant_context",
     "modality", "disease", "organisation", "geography",
     "evidence_quote", "citation", "confidence", "schema_version", "prompt_hash",
+    # Tier 2 intelligence signals (v1-python upgrade)
+    "development_stage", "sponsor_type", "ip_signals", "aav_capsid",
+    "therapeutic_payload", "trial_id", "manufacturing_gmp_signal",
 ]
 
 

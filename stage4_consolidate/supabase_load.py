@@ -36,6 +36,15 @@ except ImportError:
 
 BATCH_SIZE = 200
 
+# Columns that exist in cgt_research_facts — new fields are stripped before upload
+# to avoid a 400 until a Supabase migration adds them.
+SUPABASE_COLS = {
+    "abstract_id", "source_id", "source_type", "fact_type",
+    "subject", "what", "quant_value", "quant_unit", "quant_context",
+    "modality", "disease", "organisation", "geography",
+    "evidence_quote", "citation", "confidence", "schema_version", "prompt_hash",
+}
+
 
 def load_facts(jsonl_path: Path, dry_run: bool = False) -> None:
     url = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -73,7 +82,7 @@ def load_facts(jsonl_path: Path, dry_run: bool = False) -> None:
 
     total = 0
     for i in range(0, len(facts), BATCH_SIZE):
-        batch = facts[i : i + BATCH_SIZE]
+        batch = [{k: v for k, v in row.items() if k in SUPABASE_COLS} for row in facts[i : i + BATCH_SIZE]]
         resp = requests.post(endpoint, headers=headers, json=batch, timeout=60)
         if resp.status_code not in (200, 201):
             print(f"ERROR batch {i // BATCH_SIZE + 1}: HTTP {resp.status_code}", file=sys.stderr)
