@@ -645,6 +645,106 @@ def parse_chunk(chunk_text, source_id, chunk_pages):
         }
 
 
+# ─── RESCUE PASS ─────────────────────────────────────────────────────────────
+
+def rescue_missing_abstracts(chunk_files, extracted_ids, row_counter, page_map,
+                              csv_writer, csv_fh, jsonl_fh):
+    """Second pass: find abstracts whose heading had no blank line before it.
+
+    HEADING_RE requires blank lines; some abstracts immediately follow the prior
+    abstract's last sentence with only a single newline.  This function searches
+    for those specific IDs using a relaxed pattern (no blank-line guard), then
+    wraps the found text with synthetic blank lines so parse_chunk() works normally.
+    """
+    valid_ids = {str(n) for lo, hi in VALID_RANGES for n in range(lo, hi + 1)}
+    missing_ids = sorted(valid_ids - extracted_ids, key=lambda x: int(x))
+
+    if not missing_ids:
+        print("\nRescue pass: 0 missing IDs — nothing to do.")
+        return row_counter
+
+    print(f"\nRescue pass: searching for {len(missing_ids)} IDs not found in primary pass...")
+
+    rescued = 0
+    not_found = []
+
+    for mid in missing_ids:
+        # No blank-line requirement — just the ID at the start of a line
+        rescue_re = re.compile(
+            rf'(?:^|\n)[ \t]*{re.escape(mid)}[ \t]+(?P<title>[A-Z][^\n]{{9,}})',
+            re.MULTILINE
+        )
+
+        found = False
+        for chunk_path in chunk_files:
+            try:
+                chunk_text = chunk_path.read_text(encoding='utf-8', errors='replace')
+            except Exception:
+                continue
+
+            m = rescue_re.search(chunk_text)
+            if not m:
+                continue
+
+            # Abstract body: from heading to next HEADING_RE match or end of chunk
+            next_m = HEADING_RE.search(chunk_text, m.end())
+            if next_m and is_valid_asgct_id(next_m.group('id')):
+                abstract_text = chunk_text[m.start():next_m.start()]
+            else:
+                abstract_text = chunk_text[m.start():]
+
+            # Prepend blank lines so parse_chunk's HEADING_RE fires on this heading
+            wrapped = '\n\n' + abstract_text.lstrip('\n')
+            source_id   = chunk_path.name
+            chunk_pages = page_map.get(source_id, 'UNKNOWN')
+
+            for fact in parse_chunk(wrapped, source_id, chunk_pages):
+                if fact['abstract_id'] != mid:
+                    continue  # safety: only accept the target ID
+                fact['row_id'] = row_counter
+                row_counter += 1
+                extracted_ids.add(mid)
+
+                if csv_writer:
+                    csv_writer.writerow(fact)
+                    csv_fh.flush()
+                if jsonl_fh:
+                    jrow = {
+                        'abstract_id':    mid,
+                        'source_id':      fact['source_id'],
+                        'source_type':    'pdf_abstract',
+                        'fact_type':      'finding',
+                        'subject':        fact['organisation'] if fact['organisation'] != 'UNKNOWN' else fact['first_author'],
+                        'what':           fact['what_found'],
+                        'modality':       fact['modality'] if fact['modality'] != 'UNKNOWN' else None,
+                        'disease':        fact['disease']   if fact['disease']   != 'UNKNOWN' else None,
+                        'organisation':   fact['organisation'] if fact['organisation'] != 'UNKNOWN' else None,
+                        'geography':      fact['geography']    if fact['geography']    != 'UNKNOWN' else None,
+                        'evidence_quote': fact['evidence_quote'],
+                        'citation':       fact['citation'],
+                        'confidence':     fact['confidence'],
+                        'schema_version': 'v1-python',
+                    }
+                    jsonl_fh.write(json.dumps(jrow, ensure_ascii=False) + '\n')
+                    jsonl_fh.flush()
+
+                print(f"  Rescued {mid}: {fact['title'][:65]}")
+                rescued += 1
+                found = True
+                break
+
+            if found:
+                break
+
+        if not found:
+            not_found.append(mid)
+
+    if not_found:
+        print(f"  Confirmed PDF gaps (not rescuable): {not_found}")
+    print(f"Rescue pass complete: {rescued} rescued, {len(not_found)} confirmed gaps.")
+    return row_counter
+
+
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 
 def main():
@@ -778,6 +878,13 @@ def main():
 
             if not args.dry_run:
                 print(f"  {source_id}: {chunk_new} new abstracts extracted")
+
+        # Rescue pass: pick up abstracts with no blank line before their heading
+        if not args.dry_run and (args.out_csv or args.out_jsonl):
+            row_counter = rescue_missing_abstracts(
+                chunk_files, extracted_ids, row_counter, page_map,
+                csv_writer, csv_fh, jsonl_fh,
+            )
 
     finally:
         if csv_fh:

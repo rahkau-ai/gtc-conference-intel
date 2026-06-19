@@ -46,7 +46,7 @@ def load_facts(jsonl_path: Path, dry_run: bool = False) -> None:
         print("  source the hub .env:  set -o allexport && source C:/Users/Me/Desktop/GTC/hub/.env && set +o allexport")
         sys.exit(1)
 
-    endpoint = f"{url}/rest/v1/cgt_research_facts"
+    endpoint = f"{url}/rest/v1/cgt_research_facts?on_conflict=abstract_id,source_id,schema_version"
     headers = {
         "apikey": key,
         "Authorization": f"Bearer {key}",
